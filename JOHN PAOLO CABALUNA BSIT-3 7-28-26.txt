@@ -1,0 +1,21 @@
+JOHN PAOLO CABALUNA BSIT-3 7/28/26
+
+ASSIGNMENT
+1. What are the differences between Native, Hybrid, and Cross-platform mobile application development, and when is each approach commonly used?
+Native Development: This involves building an app specifically for one operating system using its dedicated languages (like Swift for iOS or Kotlin for Android). It's the best approach when an application requires maximum performance, complex 3D rendering, or deep, direct access to device hardware.
+
+Hybrid Development: This approach takes standard web technologies (HTML, CSS, JavaScript) and wraps them inside a native mobile container. It is typically used for simple, content-heavy apps where fast delivery and low budget are the priority, though it sacrifices performance.
+
+Cross-platform Development: This is where we write a single codebase that compiles directly into near-native code for multiple platforms (using frameworks like Flutter). Coming from a background of building full-stack web and database projects, this is the sweet spot: it saves development time by avoiding maintaining two separate codebases while still delivering native-like performance.
+
+2. What is the Flutter Ecosystem, and how does it help developers create modern mobile applications?
+The Flutter ecosystem consists of Google’s UI toolkit, the Dart programming language, a high-performance rendering engine, and a massive repository of community packages on pub.dev. It helps us build modern apps by standardizing the workflow. Instead of using platform-specific UI components, Flutter draws every pixel itself, ensuring the app looks identical on any device. Features like Hot Reload are absolute lifesavers during development, allowing us to see code changes instantly without restarting the app or losing our current state.
+
+3. What is the Software Development Life Cycle (SDLC), and why is it important in building successful applications?
+The SDLC is the structured, phase-by-phase methodology we use to plan, design, build, test, and deploy software. Through my coursework and personal projects, I've learned that jumping straight into coding without a plan usually leads to messy architectures and system anomalies. The SDLC is important because it forces us to apply proper problem-solving and system analysis upfront. It keeps timelines predictable, manages costs, and ensures the final application is scalable and maintainable.
+
+4. How do Flutter development practices and the SDLC work together in creating real-world mobile applications?
+Flutter integrates smoothly into every phase of the SDLC. During the design phase, we can map out our widget trees and plan state management just like we would plan out relational database logic or system architectures. During implementation, Flutter’s modular components allow for rapid coding. For testing, Flutter has built-in suites for unit and widget testing to catch bugs early. Finally, for deployment, Flutter's CLI makes it straightforward to compile release builds and push them to production environments.
+
+5. Why should developers understand these concepts before starting an application project?
+Having a strong foundation in these concepts prevents critical mistakes before a single line of code is written. If we don't understand the difference between Native and Cross-platform, we might select the wrong technology stack for our system requirements, leading to expensive rewrites later. Understanding how the SDLC and our tooling work together ensures we approach development with a mindset of continuous learning, collaboration, and scalable problem-solving, rather than just blindly writing code.
