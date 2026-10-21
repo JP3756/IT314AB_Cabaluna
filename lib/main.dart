@@ -1,6 +1,15 @@
-import 'package:flutter/material.dart';
+import 'dart:convert';
 
-void main() {
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+// The app starts here. We load the saved students BEFORE the app
+// opens, so the very first screen already has the saved records.
+// "async" and "await" are needed because reading local storage
+// takes a moment.
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await loadSavedStudents();
   runApp(const MyApp());
 }
 
@@ -34,6 +43,232 @@ class Profile {
     required this.active,
     required this.favorite,
   });
+
+  // Turns a student into a Map so it can be saved as JSON text.
+  Map<String, dynamic> toMap() {
+    return {
+      'imageUrl': imageUrl,
+      'name': name,
+      'course': course,
+      'yearLevel': yearLevel,
+      'age': age,
+      'hobby': hobby,
+      'studentId': studentId,
+      'email': email,
+      'favoriteSubject': favoriteSubject,
+      'active': active,
+      'favorite': favorite,
+    };
+  }
+
+  // Turns a saved Map back into a student. The "??" gives a safe
+  // default if a value is missing from the saved data.
+  factory Profile.fromMap(Map<String, dynamic> map) {
+    return Profile(
+      imageUrl: (map['imageUrl'] ?? '') as String,
+      name: (map['name'] ?? '') as String,
+      course: (map['course'] ?? '') as String,
+      yearLevel: (map['yearLevel'] ?? '') as String,
+      age: (map['age'] ?? 0) as int,
+      hobby: (map['hobby'] ?? '') as String,
+      studentId: (map['studentId'] ?? '') as String,
+      email: (map['email'] ?? '') as String,
+      favoriteSubject: (map['favoriteSubject'] ?? '') as String,
+      active: (map['active'] ?? true) as bool,
+      favorite: (map['favorite'] ?? false) as bool,
+    );
+  }
+}
+
+// ---------------------------------------------------------------
+// SHARED STUDENT DATA + LOCAL STORAGE
+// ---------------------------------------------------------------
+
+// This is the ONE list of students used by the whole app. The Student
+// List screen shows it, the Add Student screen adds to it and checks
+// it for duplicate IDs, and the Details screen edits its students.
+List<Profile> allStudents = [];
+
+// This is the name (key) the student list is saved under inside
+// the phone's local storage (SharedPreferences).
+const String storageKey = 'saved_students';
+
+// These are the starting students. They are only used the very first
+// time the app opens (when nothing has been saved yet).
+List<Profile> createSampleStudents() {
+  return [
+    Profile(
+      imageUrl:
+          'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=500',
+      name: 'Maria',
+      course: 'BSIT',
+      yearLevel: '3rd Year',
+      age: 20,
+      hobby: 'Reading',
+      studentId: '2023-0001',
+      email: 'maria@example.com',
+      favoriteSubject: 'Programming',
+      active: true,
+      favorite: false,
+    ),
+    Profile(
+      imageUrl:
+          'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=500',
+      name: 'John',
+      course: 'BSIT',
+      yearLevel: '3rd Year',
+      age: 21,
+      hobby: 'Gaming',
+      studentId: '2023-0002',
+      email: 'john@example.com',
+      favoriteSubject: 'Database Systems',
+      active: false,
+      favorite: false,
+    ),
+    Profile(
+      imageUrl:
+          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500',
+      name: 'Aaron',
+      course: 'BSIT',
+      yearLevel: '2nd Year',
+      age: 20,
+      hobby: 'Chess',
+      studentId: '2024-0003',
+      email: 'aaron@example.com',
+      favoriteSubject: 'Data Structures',
+      active: true,
+      favorite: false,
+    ),
+    Profile(
+      imageUrl:
+          'https://images.unsplash.com/photo-1552053831-71594a27632d?w=500',
+      name: 'Juan',
+      course: 'BSIT',
+      yearLevel: '3rd Year',
+      age: 21,
+      hobby: 'Basketball',
+      studentId: '2023-0004',
+      email: 'juan@example.com',
+      favoriteSubject: 'Networking',
+      active: false,
+      favorite: false,
+    ),
+    Profile(
+      imageUrl:
+          'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=500',
+      name: 'Sophia',
+      course: 'BSIT',
+      yearLevel: '2nd Year',
+      age: 20,
+      hobby: 'Drawing',
+      studentId: '2024-0005',
+      email: 'sophia@example.com',
+      favoriteSubject: 'Web Development',
+      active: true,
+      favorite: false,
+    ),
+    Profile(
+      imageUrl:
+          'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=500',
+      name: 'David',
+      course: 'BSIT',
+      yearLevel: '3rd Year',
+      age: 22,
+      hobby: 'Music',
+      studentId: '2023-0006',
+      email: 'david@example.com',
+      favoriteSubject: 'Software Engineering',
+      active: true,
+      favorite: false,
+    ),
+  ];
+}
+
+// SAVE: turns the whole list into JSON text and stores it locally.
+// Every time a student is added, edited, or deleted, we call this
+// so the saved data always matches what is on the screen.
+Future<void> saveStudents() async {
+  final prefs = await SharedPreferences.getInstance();
+
+  final List<Map<String, dynamic>> data = [];
+  for (final student in allStudents) {
+    data.add(student.toMap());
+  }
+
+  await prefs.setString(storageKey, jsonEncode(data));
+}
+
+// LOAD: reads the saved JSON text and rebuilds the student list.
+Future<void> loadSavedStudents() async {
+  final prefs = await SharedPreferences.getInstance();
+  final String? savedText = prefs.getString(storageKey);
+
+  // Nothing has been saved yet (first time the app is opened), so we
+  // start with the sample students and save them.
+  if (savedText == null) {
+    allStudents = createSampleStudents();
+    await saveStudents();
+    return;
+  }
+
+  try {
+    final List<dynamic> decoded = jsonDecode(savedText) as List<dynamic>;
+    final List<Profile> loaded = [];
+
+    for (final item in decoded) {
+      loaded.add(Profile.fromMap(item as Map<String, dynamic>));
+    }
+
+    // If the saved list is empty (everyone was deleted), it stays
+    // empty. Deleted students do NOT come back after a restart.
+    allStudents = loaded;
+  } catch (_) {
+    // The saved data was damaged, so we fall back to the samples
+    // instead of crashing the app.
+    allStudents = createSampleStudents();
+    await saveStudents();
+  }
+}
+
+// Turns a year number into the same text style the sample students
+// use, for example 3 becomes "3rd Year".
+String yearLevelLabel(int year) {
+  if (year == 1) {
+    return '1st Year';
+  }
+  if (year == 2) {
+    return '2nd Year';
+  }
+  if (year == 3) {
+    return '3rd Year';
+  }
+  return '${year}th Year';
+}
+
+// Shows the student's picture. New students are enrolled without a
+// picture, and a picture can also fail to load (no internet), so in
+// both cases we show a simple person icon instead of crashing.
+Widget buildAvatar(String imageUrl, double size) {
+  final Widget placeholder = CircleAvatar(
+    radius: size / 2,
+    child: Icon(Icons.person, size: size * 0.6),
+  );
+
+  if (imageUrl.isEmpty) {
+    return placeholder;
+  }
+
+  return ClipOval(
+    child: Image.network(
+      imageUrl,
+      width: size,
+      height: size,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) {
+        return placeholder;
+      },
+    ),
+  );
 }
 
 // This is the main app.
@@ -103,8 +338,12 @@ class StudentListScreenState extends State<StudentListScreen> {
   // This tells us if the student data is still loading.
   bool isLoading = true;
 
-  // This stores all of the students currently in the directory.
-  List<Profile> students = [];
+  // The students shown on this screen are the shared allStudents
+  // list. Using the same list as the Add Student screen is what lets
+  // a newly enrolled student show up here.
+  List<Profile> get students {
+    return allStudents;
+  }
 
   @override
   void initState() {
@@ -114,105 +353,32 @@ class StudentListScreenState extends State<StudentListScreen> {
     loadStudents();
   }
 
-  // This pretends to fetch the students from somewhere (like a
-  // server) by waiting two seconds and then filling the list.
-  void loadStudents() {
+  // This shows the loading spinner for two seconds, then reads the
+  // saved students from local storage and shows them.
+  Future<void> loadStudents() async {
     setState(() {
       isLoading = true;
     });
 
-    Future.delayed(const Duration(seconds: 2), () {
-      setState(() {
-        students = [
-          Profile(
-            imageUrl:
-                'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=500',
-            name: 'Maria',
-            course: 'BSIT',
-            yearLevel: '3rd Year',
-            age: 20,
-            hobby: 'Reading',
-            studentId: '2023-0001',
-            email: 'maria@example.com',
-            favoriteSubject: 'Programming',
-            active: true,
-            favorite: false,
-          ),
-          Profile(
-            imageUrl:
-                'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=500',
-            name: 'John',
-            course: 'BSIT',
-            yearLevel: '3rd Year',
-            age: 21,
-            hobby: 'Gaming',
-            studentId: '2023-0002',
-            email: 'john@example.com',
-            favoriteSubject: 'Database Systems',
-            active: false,
-            favorite: false,
-          ),
-          Profile(
-            imageUrl:
-                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500',
-            name: 'Aaron',
-            course: 'BSIT',
-            yearLevel: '2nd Year',
-            age: 20,
-            hobby: 'Chess',
-            studentId: '2024-0003',
-            email: 'aaron@example.com',
-            favoriteSubject: 'Data Structures',
-            active: true,
-            favorite: false,
-          ),
-          Profile(
-            imageUrl:
-                'https://images.unsplash.com/photo-1552053831-71594a27632d?w=500',
-            name: 'Juan',
-            course: 'BSIT',
-            yearLevel: '3rd Year',
-            age: 21,
-            hobby: 'Basketball',
-            studentId: '2023-0004',
-            email: 'juan@example.com',
-            favoriteSubject: 'Networking',
-            active: false,
-            favorite: false,
-          ),
-          Profile(
-            imageUrl:
-                'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=500',
-            name: 'Sophia',
-            course: 'BSIT',
-            yearLevel: '2nd Year',
-            age: 20,
-            hobby: 'Drawing',
-            studentId: '2024-0005',
-            email: 'sophia@example.com',
-            favoriteSubject: 'Web Development',
-            active: true,
-            favorite: false,
-          ),
-          Profile(
-            imageUrl:
-                'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=500',
-            name: 'David',
-            course: 'BSIT',
-            yearLevel: '3rd Year',
-            age: 22,
-            hobby: 'Music',
-            studentId: '2023-0006',
-            email: 'david@example.com',
-            favoriteSubject: 'Software Engineering',
-            active: true,
-            favorite: false,
-          ),
-        ];
+    await Future.delayed(const Duration(seconds: 2));
+    await loadSavedStudents();
 
-        isLoading = false;
-      });
+    // If the screen was closed while we were waiting, stop here.
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      isLoading = false;
     });
+  }
+
+  // Used by the "Reload Students" button when the list is empty.
+  // It puts the sample students back and saves them.
+  Future<void> restoreSampleStudents() async {
+    allStudents = createSampleStudents();
+    await saveStudents();
+    await loadStudents();
   }
 
   // This flips a student's status from Active to Inactive, or from
@@ -225,6 +391,9 @@ class StudentListScreenState extends State<StudentListScreen> {
         students[index].active = true;
       }
     });
+
+    // Save the change so it is still there after a restart.
+    saveStudents();
   }
 
   // This flips a student's favorite on or off.
@@ -236,6 +405,8 @@ class StudentListScreenState extends State<StudentListScreen> {
         students[index].favorite = true;
       }
     });
+
+    saveStudents();
   }
 
   // This removes a student from the list completely.
@@ -243,12 +414,16 @@ class StudentListScreenState extends State<StudentListScreen> {
     setState(() {
       students.removeAt(index);
     });
+
+    // Save the shorter list so the deleted student stays deleted
+    // after a restart.
+    saveStudents();
   }
 
   // This is called when the user taps on a student card.
   // It sends the tapped student over to the Student Details screen
   // by attaching it as "arguments" on the route.
-  void openStudentDetails(Profile tappedStudent) async {
+  Future<void> openStudentDetails(Profile tappedStudent) async {
     // We use "await" here so that once the user comes back from the
     // Details screen (for example after editing something), we can
     // immediately refresh this screen to show the updated info.
@@ -257,6 +432,10 @@ class StudentListScreenState extends State<StudentListScreen> {
       '/student-details',
       arguments: tappedStudent,
     );
+
+    if (!mounted) {
+      return;
+    }
 
     setState(() {
       // Nothing needs to change here manually because "students"
@@ -267,9 +446,17 @@ class StudentListScreenState extends State<StudentListScreen> {
   }
 
   // This opens the Add Student screen when the person taps the
-  // add-student button in the app bar.
-  void openAddStudent() {
-    Navigator.pushNamed(context, '/add-student');
+  // add-student button in the app bar. When the Add Student screen
+  // closes (after a successful enrollment), we refresh this screen
+  // so the new student appears in the list.
+  Future<void> openAddStudent() async {
+    await Navigator.pushNamed(context, '/add-student');
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {});
   }
 
   // This decides what should be shown in the middle of the screen:
@@ -319,7 +506,7 @@ class StudentListScreenState extends State<StudentListScreen> {
             const SizedBox(height: 15),
             ElevatedButton(
               onPressed: () {
-                loadStudents();
+                restoreSampleStudents();
               },
               child: const Text('Reload Students'),
             ),
@@ -355,14 +542,7 @@ class StudentListScreenState extends State<StudentListScreen> {
                   Center(
                     child: Stack(
                       children: [
-                        ClipOval(
-                          child: Image.network(
-                            student.imageUrl,
-                            width: 100,
-                            height: 100,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
+                        buildAvatar(student.imageUrl, 100),
                         if (student.favorite == true)
                           const Positioned(
                             right: 0,
@@ -379,7 +559,7 @@ class StudentListScreenState extends State<StudentListScreen> {
                   const SizedBox(height: 15),
 
                   Text(
-                    'Name: ' + student.name,
+                    'Name: ${student.name}',
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -387,7 +567,7 @@ class StudentListScreenState extends State<StudentListScreen> {
                   ),
 
                   Text(
-                    'Course: ' + student.course,
+                    'Course: ${student.course}',
                   ),
 
                   const SizedBox(height: 10),
@@ -498,7 +678,8 @@ class StudentListScreenState extends State<StudentListScreen> {
       appBar: AppBar(
         title: const Text('Student Directory'),
         actions: [
-          // Refresh button reloads the student list from scratch.
+          // Refresh button reloads the student list from local
+          // storage.
           IconButton(
             onPressed: () {
               loadStudents();
@@ -615,6 +796,10 @@ class StudentDetailsScreenState extends State<StudentDetailsScreen> {
                           widget.student.course = courseController.text;
                         });
 
+                        // Save the edited student to local storage
+                        // so the change survives a restart.
+                        saveStudents();
+
                         // Closes the modal after saving.
                         Navigator.pop(context);
                       },
@@ -630,9 +815,25 @@ class StudentDetailsScreenState extends State<StudentDetailsScreen> {
     );
   }
 
+  // Shows "Not provided" for details that were not collected on the
+  // enrollment form (age, hobby, favorite subject).
+  String showOrNotProvided(String value) {
+    if (value.trim().isEmpty) {
+      return 'Not provided';
+    }
+    return value;
+  }
+
   @override
   Widget build(BuildContext context) {
     Profile student = widget.student;
+
+    String ageText;
+    if (student.age == 0) {
+      ageText = 'Not provided';
+    } else {
+      ageText = student.age.toString();
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -653,14 +854,7 @@ class StudentDetailsScreenState extends State<StudentDetailsScreen> {
             Center(
               child: Stack(
                 children: [
-                  ClipOval(
-                    child: Image.network(
-                      student.imageUrl,
-                      width: 140,
-                      height: 140,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
+                  buildAvatar(student.imageUrl, 140),
                   if (student.favorite == true)
                     const Positioned(
                       right: 0,
@@ -719,49 +913,49 @@ class StudentDetailsScreenState extends State<StudentDetailsScreen> {
             const SizedBox(height: 10),
 
             Text(
-              'Student ID: ' + student.studentId,
+              'Student ID: ${student.studentId}',
               style: const TextStyle(fontSize: 16),
             ),
 
             const SizedBox(height: 8),
 
             Text(
-              'Course: ' + student.course,
+              'Course: ${student.course}',
               style: const TextStyle(fontSize: 16),
             ),
 
             const SizedBox(height: 8),
 
             Text(
-              'Year Level: ' + student.yearLevel,
+              'Year Level: ${student.yearLevel}',
               style: const TextStyle(fontSize: 16),
             ),
 
             const SizedBox(height: 8),
 
             Text(
-              'Age: ' + student.age.toString(),
+              'Age: $ageText',
               style: const TextStyle(fontSize: 16),
             ),
 
             const SizedBox(height: 8),
 
             Text(
-              'Hobby: ' + student.hobby,
+              'Hobby: ${showOrNotProvided(student.hobby)}',
               style: const TextStyle(fontSize: 16),
             ),
 
             const SizedBox(height: 8),
 
             Text(
-              'Email: ' + student.email,
+              'Email: ${student.email}',
               style: const TextStyle(fontSize: 16),
             ),
 
             const SizedBox(height: 8),
 
             Text(
-              'Favorite Subject: ' + student.favoriteSubject,
+              'Favorite Subject: ${showOrNotProvided(student.favoriteSubject)}',
               style: const TextStyle(fontSize: 16),
             ),
           ],
@@ -772,11 +966,177 @@ class StudentDetailsScreenState extends State<StudentDetailsScreen> {
 }
 
 // This is the Add Student screen.
-// For now this screen does not have any input fields yet. It only
-// exists as its own destination so that navigation between screens
-// is already working. The actual form can be added later.
-class AddStudentScreen extends StatelessWidget {
+// It is now a real enrollment form. It has to be a StatefulWidget
+// because it owns text controllers and needs to remember things
+// while the administrator types.
+class AddStudentScreen extends StatefulWidget {
   const AddStudentScreen({super.key});
+
+  @override
+  State<AddStudentScreen> createState() {
+    return AddStudentScreenState();
+  }
+}
+
+class AddStudentScreenState extends State<AddStudentScreen> {
+  // The Form key lets us ask the whole form "is everything valid?"
+  // when the Enroll button is pressed.
+  final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+
+  // One controller per input field. A controller lets us read what
+  // was typed (and clear it after a successful enrollment).
+  final TextEditingController studentIdController = TextEditingController();
+  final TextEditingController nameController = TextEditingController();
+  final TextEditingController courseController = TextEditingController();
+  final TextEditingController yearLevelController = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
+
+  // Stops the button from being pressed twice while saving.
+  bool isSaving = false;
+
+  // Controllers must be cleaned up when the screen closes.
+  @override
+  void dispose() {
+    studentIdController.dispose();
+    nameController.dispose();
+    courseController.dispose();
+    yearLevelController.dispose();
+    emailController.dispose();
+    super.dispose();
+  }
+
+  // ---------------- VALIDATORS ----------------
+  // A validator returns a message (String) when the value is bad,
+  // or null when the value is fine. Flutter shows the message in
+  // red under the field.
+
+  String? validateStudentId(String? value) {
+    final String text = (value ?? '').trim();
+
+    if (text.isEmpty) {
+      return 'Student ID is required';
+    }
+
+    // Duplicate check: compare with every existing student's ID,
+    // ignoring capital letters and extra spaces.
+    for (final student in allStudents) {
+      if (student.studentId.trim().toLowerCase() == text.toLowerCase()) {
+        return 'This Student ID already exists';
+      }
+    }
+
+    return null;
+  }
+
+  String? validateName(String? value) {
+    if ((value ?? '').trim().isEmpty) {
+      return 'Full name is required';
+    }
+    return null;
+  }
+
+  String? validateCourse(String? value) {
+    if ((value ?? '').trim().isEmpty) {
+      return 'Course is required';
+    }
+    return null;
+  }
+
+  String? validateYearLevel(String? value) {
+    final String text = (value ?? '').trim();
+
+    if (text.isEmpty) {
+      return 'Year level is required';
+    }
+
+    // int.tryParse returns null if the text is not a whole number.
+    final int? year = int.tryParse(text);
+
+    if (year == null || year < 1 || year > 5) {
+      return 'Enter a year level from 1 to 5';
+    }
+
+    return null;
+  }
+
+  String? validateEmail(String? value) {
+    final String text = (value ?? '').trim();
+
+    if (text.isEmpty) {
+      return 'Email address is required';
+    }
+
+    // A simple email pattern: something, an @, something, a dot,
+    // something, with no spaces.
+    final RegExp emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+
+    if (!emailPattern.hasMatch(text)) {
+      return 'Enter a valid email address';
+    }
+
+    return null;
+  }
+
+  // ---------------- SUBMIT ----------------
+  Future<void> submitForm() async {
+    // validate() runs every validator. If even one field is bad, it
+    // shows the error messages and returns false, so we stop here
+    // and NO student is created.
+    final bool formIsValid = formKey.currentState!.validate();
+
+    if (formIsValid == false) {
+      return;
+    }
+
+    setState(() {
+      isSaving = true;
+    });
+
+    // Create the new student from what was typed.
+    final int year = int.parse(yearLevelController.text.trim());
+
+    final Profile newStudent = Profile(
+      imageUrl: '',
+      name: nameController.text.trim(),
+      course: courseController.text.trim(),
+      yearLevel: yearLevelLabel(year),
+      age: 0,
+      hobby: '',
+      studentId: studentIdController.text.trim(),
+      email: emailController.text.trim(),
+      favoriteSubject: '',
+      active: true,
+      favorite: false,
+    );
+
+    // Put the new student at the top of the shared list.
+    allStudents.insert(0, newStudent);
+
+    // Clear the form fields after a successful enrollment. Calling
+    // reset() right after also clears any old error messages, so
+    // the form is completely fresh.
+    studentIdController.clear();
+    nameController.clear();
+    courseController.clear();
+    yearLevelController.clear();
+    emailController.clear();
+    formKey.currentState!.reset();
+
+    // Save the updated list to local storage.
+    await saveStudents();
+
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${newStudent.name} was enrolled successfully')),
+    );
+
+    // Go back to the Student List. The list screen refreshes itself
+    // when we return, so the new student is displayed.
+    Navigator.pop(context, newStudent);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -784,28 +1144,111 @@ class AddStudentScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Add Student'),
       ),
-      body: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.person_add_alt_1,
-              size: 80,
-              color: Colors.grey,
-            ),
-            SizedBox(height: 15),
-            Text(
-              'Add Student Form',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Form(
+          key: formKey,
+          // After the first time a field is touched, its error
+          // message updates live as the person fixes it.
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Enroll a New Student',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            SizedBox(height: 10),
-            Text(
-              'The input fields for this screen will be added later.',
-            ),
-          ],
+
+              const SizedBox(height: 20),
+
+              TextFormField(
+                controller: studentIdController,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(
+                  labelText: 'Student ID',
+                  hintText: 'e.g. 2026-0007',
+                  prefixIcon: Icon(Icons.badge),
+                  border: OutlineInputBorder(),
+                ),
+                validator: validateStudentId,
+              ),
+
+              const SizedBox(height: 16),
+
+              TextFormField(
+                controller: nameController,
+                textInputAction: TextInputAction.next,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                  labelText: 'Full Name',
+                  prefixIcon: Icon(Icons.person),
+                  border: OutlineInputBorder(),
+                ),
+                validator: validateName,
+              ),
+
+              const SizedBox(height: 16),
+
+              TextFormField(
+                controller: courseController,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(
+                  labelText: 'Course',
+                  hintText: 'e.g. BSIT',
+                  prefixIcon: Icon(Icons.school),
+                  border: OutlineInputBorder(),
+                ),
+                validator: validateCourse,
+              ),
+
+              const SizedBox(height: 16),
+
+              TextFormField(
+                controller: yearLevelController,
+                keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(
+                  labelText: 'Year Level',
+                  hintText: '1 to 5',
+                  prefixIcon: Icon(Icons.format_list_numbered),
+                  border: OutlineInputBorder(),
+                ),
+                validator: validateYearLevel,
+              ),
+
+              const SizedBox(height: 16),
+
+              TextFormField(
+                controller: emailController,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.done,
+                decoration: const InputDecoration(
+                  labelText: 'Email Address',
+                  hintText: 'name@example.com',
+                  prefixIcon: Icon(Icons.email),
+                  border: OutlineInputBorder(),
+                ),
+                validator: validateEmail,
+              ),
+
+              const SizedBox(height: 24),
+
+              SizedBox(
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: () {
+                    if (isSaving == false) {
+                      submitForm();
+                    }
+                  },
+                  child: const Text('Enroll Student'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
