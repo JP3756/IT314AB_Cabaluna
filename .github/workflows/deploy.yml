@@ -1,0 +1,68 @@
+name: Build and deploy Flutter Web
+
+on:
+  push:
+    branches:
+      - feature/student-enrollment
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.8'
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze source
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Build Flutter Web release
+        run: flutter build web --release
+
+      - name: Package Web build
+        run: |
+          cd build/web
+          zip -r ../../student_directory_web.zip .
+
+      - name: Configure SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+
+      - name: Trust Lightsail host
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "${{ secrets.LIGHTSAIL_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Upload Web build
+        run: |
+          scp student_directory_web.zip \
+            "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}:/tmp/student_directory_web.zip"
+
+      - name: Deploy Web build
+        run: |
+          ssh "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}" <<'EOF'
+            set -e
+            sudo rm -rf /var/www/student_directory
+            sudo mkdir -p /var/www/student_directory
+            sudo unzip -o /tmp/student_directory_web.zip -d /var/www/student_directory
+            sudo chown -R www-data:www-data /var/www/student_directory
+            sudo nginx -t
+            sudo systemctl reload nginx
+          EOF
