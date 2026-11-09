@@ -96,7 +96,7 @@ jobs:
           sudo chown -R www-data:www-data /var/www/student_directory
           sudo nginx -t
           sudo systemctl enable --now nginx
-          sudo systemctl reload nginx
-          curl --fail --silent --show-error http://127.0.0.1/ | grep -q 'student_directory'
+          sudo systemctl restart nginx
+          curl --fail --silent --show-error http://127.0.0.1/ | grep -q 'flutter_bootstrap.js'
           sudo rm -f /tmp/student_directory_web.zip
           EOF
