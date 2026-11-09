@@ -8,9 +8,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: lightsail-production
+  cancel-in-progress: true
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    environment: production
 
     steps:
       - name: Check out repository
@@ -55,14 +60,44 @@ jobs:
           scp student_directory_web.zip \
             "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}:/tmp/student_directory_web.zip"
 
-      - name: Deploy Web build
+      - name: Configure server and deploy Web build
         run: |
-          ssh "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}" <<'EOF'
+          ssh "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}" \
+            "DEPLOY_ID=${GITHUB_SHA} bash -s" <<'EOF'
             set -e
-            sudo rm -rf /var/www/student_directory
-            sudo mkdir -p /var/www/student_directory
-            sudo unzip -o /tmp/student_directory_web.zip -d /var/www/student_directory
+
+            sudo apt-get update
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nginx unzip
+
+            sudo mkdir -p /var/www/student_directory/releases
+            release_dir="/var/www/student_directory/releases/${DEPLOY_ID:-manual}"
+            sudo rm -rf "$release_dir"
+            sudo mkdir -p "$release_dir"
+            sudo unzip -q -o /tmp/student_directory_web.zip -d "$release_dir"
+            sudo chown -R www-data:www-data "$release_dir"
+            sudo ln -sfn "$release_dir" /var/www/student_directory/current
+
+            sudo tee /etc/nginx/sites-available/student_directory >/dev/null <<'NGINX'
+            server {
+                listen 80 default_server;
+                listen [::]:80 default_server;
+                server_name _;
+                root /var/www/student_directory/current;
+
+                index index.html;
+
+                location / {
+                    try_files $uri $uri/ /index.html;
+                }
+            }
+            NGINX
+
+            sudo ln -sfn /etc/nginx/sites-available/student_directory /etc/nginx/sites-enabled/student_directory
+            sudo rm -f /etc/nginx/sites-enabled/default
             sudo chown -R www-data:www-data /var/www/student_directory
             sudo nginx -t
+            sudo systemctl enable --now nginx
             sudo systemctl reload nginx
+            curl --fail --silent --show-error http://127.0.0.1/ >/dev/null
+            sudo rm -f /tmp/student_directory_web.zip
           EOF
