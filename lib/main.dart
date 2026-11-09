@@ -92,6 +92,11 @@ List<Profile> allStudents = [];
 // This is the name (key) the student list is saved under inside
 // the phone's local storage (SharedPreferences).
 const String storageKey = 'saved_students';
+const String storageVersionKey = 'saved_students_version';
+const String appVersion = String.fromEnvironment(
+  'APP_VERSION',
+  defaultValue: 'development',
+);
 
 // These are the starting students. They are only used the very first
 // time the app opens (when nothing has been saved yet).
@@ -196,16 +201,18 @@ Future<void> saveStudents() async {
   }
 
   await prefs.setString(storageKey, jsonEncode(data));
+  await prefs.setString(storageVersionKey, appVersion);
 }
 
 // LOAD: reads the saved JSON text and rebuilds the student list.
 Future<void> loadSavedStudents() async {
   final prefs = await SharedPreferences.getInstance();
   final String? savedText = prefs.getString(storageKey);
+  final String? savedVersion = prefs.getString(storageVersionKey);
 
-  // Nothing has been saved yet (first time the app is opened), so we
-  // start with the sample students and save them.
-  if (savedText == null) {
+  // A new deployed version refreshes sample data so code changes appear
+  // immediately instead of being hidden by older browser storage.
+  if (savedText == null || savedVersion != appVersion) {
     allStudents = createSampleStudents();
     await saveStudents();
     return;
