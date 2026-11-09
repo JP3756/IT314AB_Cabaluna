@@ -123,7 +123,7 @@ List<Profile> createSampleStudents() {
       course: 'BSIT',
       yearLevel: '3rd Year',
       age: 21,
-      hobby: 'LEARNING DEPLOYMENT'
+      hobby: 'LEARNING DEPLOYMENT',
       studentId: '2023-0002',
       email: 'john@example.com',
       favoriteSubject: 'Database Systems',
