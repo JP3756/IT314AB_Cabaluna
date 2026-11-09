@@ -107,7 +107,7 @@ List<Profile> createSampleStudents() {
       hobby: 'Reading',
       studentId: '2023-0001',
       email: 'maria@example.com',
-      favoriteSubject: 'Programming',
+      favoriteSubject: 'LATE TEST',
       active: true,
       favorite: false,
     ),
