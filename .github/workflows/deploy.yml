@@ -38,7 +38,13 @@ jobs:
         run: flutter test
 
       - name: Build Flutter Web release
-        run: flutter build web --release --dart-define=APP_VERSION=${GITHUB_SHA}
+        env:
+          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+        run: |
+          flutter build web --release \
+            --dart-define=APP_VERSION=${GITHUB_SHA} \
+            --dart-define=DB_TARGET=neon \
+            --dart-define=NEON_DATABASE_URL="$NEON_DATABASE_URL"
 
       - name: Package Web build
         run: |

@@ -1,33 +1,37 @@
-# Student Directory
+# Enrollment System
 
-## CI/CD deployment
+IT313AB final project. A Flutter app (Android and web) on a PostgreSQL database hosted on Neon.
+The registrar manages students, subjects, schedules, enrollments and grades. Students see their
+subjects, schedule and grades.
 
-Pushes to `feature/student-enrollment` run analysis, tests, and a release web
-build in GitHub Actions. A successful build is deployed to the configured
-Lightsail instance over SSH.
+## Folders
+```
+lib/config         which database to use
+lib/core           database access (direct on Android, HTTP on web) and helpers
+lib/models         one class per table, same field names as the columns
+lib/repositories   the SQL, one file per table
+lib/viewmodels     screen state, one per table
+lib/screens        admin tabs and the student view
+db/migrations      tables, keys, checks and triggers
+tools              migration runner, local setup, local web bridge, repository checks
+```
 
-Add these repository Actions secrets before pushing:
+## Setup
+1. Copy `.env.example` to `.env` and `.env.app`, then fill in the connection strings.
+   `.env.app` is read by the Flutter build and must not hold the admin password. Both files are git-ignored.
+2. Run:
+```
+flutter run --dart-define-from-file=.env.app                 # Android emulator or device
+flutter run -d chrome --dart-define-from-file=.env.app       # web, Neon over HTTPS
+```
+Local Postgres: set `DB_TARGET=local` in `.env.app`. Web with local Postgres also needs
+`dart run tools/local_bridge.dart`.
 
-- `LIGHTSAIL_SSH_KEY`: the private key for the `ubuntu` user (do not commit it)
-- `LIGHTSAIL_HOST`: the instance public IPv4 address or DNS name
-- `LIGHTSAIL_USER`: the SSH user, normally `ubuntu`
+## Database
+- `python tools/run_migration.py` tests the migration without keeping it. Add `--apply` to keep it, `--local` for the local database.
+- `python tools/setup_local.py` creates the local database and user.
+- `dart run tools/integration_check.dart native` runs the repositories against the local database.
 
-The first deployment installs Nginx and `unzip`, configures the server for
-Flutter SPA routing, and serves the app on port 80. Ensure the Lightsail
-firewall allows TCP port 80 and SSH access from GitHub Actions.
-
-A new Flutter project.
-
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Note
+The connection string is compiled into the app, so anyone with the build can read it. Use a limited
+Neon role and change the password if a build is shared.
