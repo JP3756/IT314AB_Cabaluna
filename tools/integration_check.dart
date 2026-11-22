@@ -6,7 +6,7 @@ import 'dart:io';
 
 import 'package:student_directory/core/db/db_service.dart';
 import 'package:student_directory/core/db/http_db_service.dart';
-import 'package:student_directory/core/db/postgres_db_service.dart';
+import 'package:student_directory/core/db_connection.dart';
 import 'package:student_directory/models/grades.dart';
 import 'package:student_directory/models/schedule.dart';
 import 'package:student_directory/models/student.dart';
@@ -42,7 +42,7 @@ Future<void> main(List<String> args) async {
   }
   final db = mode == 'http'
       ? HttpDbService(endpoint: Uri.parse('http://localhost:4000/sql'), description: 'bridge')
-      : PostgresDbService(connectionString: env['LOCAL_DATABASE_URL']!, description: 'local');
+      : DbConnection(connectionString: env['LOCAL_DATABASE_URL']!, description: 'local');
   print('Mode: $mode');
 
   final students = StudentRepository(db);

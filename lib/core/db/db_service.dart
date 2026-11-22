@@ -8,6 +8,13 @@ abstract class DbService {
   Future<void> close();
 }
 
+// Runs a test query. Throws DbException if the database cannot be reached.
+extension DbConnectionTest on DbService {
+  Future<void> testConnection() async {
+    await query('SELECT 1 AS ok');
+  }
+}
+
 // A database failure. [code] is the SQLSTATE, or 'connection' if the server can't be reached.
 class DbException implements Exception {
   DbException(this.message, {this.code, this.constraint});

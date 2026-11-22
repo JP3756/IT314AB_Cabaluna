@@ -25,6 +25,11 @@ class EnrollmentViewModel extends BaseViewModel {
         items = await _repo.list(studentId: studentFilter);
       });
 
+  Future<bool> changeSchedule({required int enrollmentId, required int scheduleId}) => run(() async {
+        await _repo.changeSchedule(enrollmentId: enrollmentId, scheduleId: scheduleId);
+        items = await _repo.list(studentId: studentFilter);
+      });
+
   Future<bool> drop(int enrollmentId) => run(() async {
         await _repo.drop(enrollmentId);
         items = await _repo.list(studentId: studentFilter);

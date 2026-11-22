@@ -19,7 +19,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _ping() async {
     final db = context.read<DbService>();
-    await db.query('SELECT 1 AS ok');
+    await db.testConnection();
   }
 
   @override

@@ -52,6 +52,19 @@ class _EnrollmentsScreenState extends State<EnrollmentsScreen> {
     if (saved == true && mounted) showSnack(context, 'Student enrolled.');
   }
 
+  Future<void> _changeSchedule(EnrollmentDetail e) async {
+    final vm = context.read<EnrollmentViewModel>();
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (_) => _ChangeScheduleForm(
+        detail: e,
+        onSubmit: (scheduleId) async =>
+            await vm.changeSchedule(enrollmentId: e.enrollment.enrollment_id!, scheduleId: scheduleId) ? null : vm.error,
+      ),
+    );
+    if (saved == true && mounted) showSnack(context, 'Schedule changed.');
+  }
+
   Future<void> _drop(EnrollmentDetail e) async {
     final vm = context.read<EnrollmentViewModel>();
     if (!await confirm(context, 'Drop enrollment', 'Drop ${e.student_name} from ${e.subject_code}? The seat is freed.', action: 'Drop')) {
@@ -111,7 +124,13 @@ class _EnrollmentsScreenState extends State<EnrollmentsScreen> {
                     isThreeLine: true,
                     leading: StatusChip(label: e.enrollment.status, good: enrolled),
                     trailing: enrolled
-                        ? IconButton(tooltip: 'Drop', icon: const Icon(Icons.person_remove_outlined), onPressed: () => _drop(e))
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(tooltip: 'Change schedule', icon: const Icon(Icons.edit_calendar), onPressed: () => _changeSchedule(e)),
+                              IconButton(tooltip: 'Drop', icon: const Icon(Icons.person_remove_outlined), onPressed: () => _drop(e)),
+                            ],
+                          )
                         : IconButton(
                             tooltip: 'Re-enroll',
                             icon: const Icon(Icons.replay),
@@ -236,6 +255,82 @@ class _EnrollFormState extends State<_EnrollForm> {
                   child: Text(
                     '${d.schedule.day_of_week.substring(0, 3)} ${d.schedule.timeRange}, ${d.schedule.room}  '
                     '(${d.slotsLeft > 0 ? '${d.slotsLeft} slots left' : 'FULL'})',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+            ],
+            onChanged: (v) => setState(() => _schedule = v),
+            validator: (v) => v == null ? 'Choose a schedule' : null,
+          ),
+      ],
+    );
+  }
+}
+
+// Change the schedule of an active enrollment (same subject).
+class _ChangeScheduleForm extends StatefulWidget {
+  const _ChangeScheduleForm({required this.detail, required this.onSubmit});
+  final EnrollmentDetail detail;
+  final Future<String?> Function(int scheduleId) onSubmit;
+
+  @override
+  State<_ChangeScheduleForm> createState() => _ChangeScheduleFormState();
+}
+
+class _ChangeScheduleFormState extends State<_ChangeScheduleForm> {
+  int? _schedule;
+  List<ScheduleDetail> _schedules = [];
+  bool _loading = true;
+  String? _loadError;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final list = await context.read<ScheduleRepository>().list(subjectId: widget.detail.enrollment.subject_id);
+      if (!mounted) return;
+      setState(() {
+        _schedules = list;
+        _loading = false;
+      });
+    } on DbException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadError = friendlyDbMessage(e);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final current = widget.detail.enrollment.schedule_id;
+    return FormDialog(
+      title: 'Change schedule - ${widget.detail.subject_code}',
+      submitLabel: 'Change',
+      onSubmit: () => widget.onSubmit(_schedule!),
+      children: [
+        if (_loading)
+          const LinearProgressIndicator()
+        else if (_loadError != null)
+          Text(_loadError!, style: TextStyle(color: Theme.of(context).colorScheme.error))
+        else
+          DropdownButtonFormField<int?>(
+            initialValue: _schedule,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'New schedule', border: OutlineInputBorder()),
+            items: [
+              for (final d in _schedules)
+                DropdownMenuItem<int?>(
+                  value: d.schedule.schedule_id,
+                  enabled: d.schedule.schedule_id != current && d.slotsLeft > 0,
+                  child: Text(
+                    '${d.schedule.day_of_week.substring(0, 3)} ${d.schedule.timeRange}, ${d.schedule.room}  '
+                    '(${d.schedule.schedule_id == current ? 'current' : d.slotsLeft > 0 ? '${d.slotsLeft} slots left' : 'FULL'})',
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),

@@ -3,11 +3,12 @@ import 'dart:io';
 
 import 'package:postgres/postgres.dart';
 
-import 'db_service.dart';
+import 'db/db_service.dart';
 
-// Direct connection with a small pool. Uses TLS when sslmode=require.
-class PostgresDbService implements DbService {
-  PostgresDbService({required String connectionString, required this.description})
+// The one shared database connection (a small pool), created once in main.dart and reused by every repository.
+// SSL is always required unless the URL explicitly says sslmode=disable (local development only).
+class DbConnection implements DbService {
+  DbConnection({required String connectionString, required this.description})
       : _pool = _buildPool(connectionString);
 
   final Pool<void> _pool;
@@ -32,7 +33,7 @@ class PostgresDbService implements DbService {
         ),
       ],
       settings: PoolSettings(
-        sslMode: (ssl == 'require' || ssl == 'verify-full') ? SslMode.require : SslMode.disable,
+        sslMode: ssl == 'disable' ? SslMode.disable : SslMode.require,
         maxConnectionCount: 4,
         connectTimeout: const Duration(seconds: 15),
         queryTimeout: const Duration(seconds: 30),

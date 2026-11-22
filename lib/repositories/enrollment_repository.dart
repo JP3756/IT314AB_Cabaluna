@@ -62,6 +62,19 @@ SELECT e.enrollment_id, e.student_id, e.subject_id, e.schedule_id,
     );
   }
 
+  // Moves an enrollment to another schedule of the same subject.
+  // The database rejects full classes and schedule conflicts.
+  Future<void> changeSchedule({required int enrollmentId, required int scheduleId}) async {
+    final rows = await _db.query(
+      r'UPDATE enrollment e SET schedule_id = $1::int '
+      r"WHERE e.enrollment_id = $2::int AND e.status = 'Enrolled' "
+      r'AND EXISTS (SELECT 1 FROM schedule s WHERE s.schedule_id = $1::int AND s.subject_id = e.subject_id) '
+      r'RETURNING e.enrollment_id',
+      [scheduleId, enrollmentId],
+    );
+    if (rows.isEmpty) throw DbException('That schedule does not belong to this subject, or the enrollment is not active.');
+  }
+
   // drop = status 'Dropped'; the row stays
   Future<void> drop(int enrollmentId) async {
     final rows = await _db.query(
